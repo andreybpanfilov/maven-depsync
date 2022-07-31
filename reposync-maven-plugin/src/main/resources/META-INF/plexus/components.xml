@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component-set>
+    <components>
+        <component>
+            <role>tel.panfilov.maven.plugins.reposync.RepositoryArtifactChecker</role>
+            <role-hint>default</role-hint>
+            <implementation>tel.panfilov.maven.plugins.reposync.DefaultRepositoryArtifactChecker</implementation>
+            <description/>
+            <isolated-realm>false</isolated-realm>
+        </component>
+    </components>
+</component-set>
