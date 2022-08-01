@@ -1,10 +1,9 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>tel.panfilov.maven</groupId>
     <artifactId>reposync</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
     <packaging>pom</packaging>
 
     <name>Maven Repository Sync</name>
@@ -13,7 +12,7 @@
         <connection>scm:git:git@github.com:andreybpanfilov/reposync.git</connection>
         <developerConnection>scm:git:git@github.com:andreybpanfilov/reposync.git</developerConnection>
         <url>https://github.com/andreybpanfilov/reposync</url>
-        <tag>HEAD</tag>
+        <tag>reposync-0.1.0</tag>
     </scm>
 
     <contributors>
@@ -34,7 +33,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.version>3.2.5</maven.version>
         <maven.plugin.tools.version>3.6.4</maven.plugin.tools.version>
-        <project.build.outputTimestamp>2022-07-31T00:00:00Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2022-08-01T13:09:39Z</project.build.outputTimestamp>
         <flatten.mode>oss</flatten.mode>
     </properties>
 
