@@ -12,7 +12,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-@Mojo(name = "single", requiresProject = false, threadSafe = true)
+/**
+ * Synchronises single artifact
+ */
+@Mojo(name = "single", requiresProject = false, threadSafe = true, requiresOnline = true)
 public class SingleSyncMojo extends AbstractSyncMojo {
 
     /**

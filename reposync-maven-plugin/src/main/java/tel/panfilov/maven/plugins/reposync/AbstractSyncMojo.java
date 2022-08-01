@@ -9,7 +9,8 @@ import org.apache.maven.artifact.repository.MavenArtifactRepository;
 import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Dependency;
-import org.apache.maven.model.building.ModelBuilder;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Parent;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -17,9 +18,11 @@ import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.repository.RepositorySystem;
+import org.apache.maven.repository.internal.ArtifactDescriptorReaderDelegate;
 import org.apache.maven.repository.internal.ArtifactDescriptorUtils;
 import org.apache.maven.settings.Settings;
 import org.codehaus.plexus.util.StringUtils;
+import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
@@ -31,6 +34,9 @@ import org.eclipse.aether.deployment.DeploymentException;
 import org.eclipse.aether.impl.ArtifactDescriptorReader;
 import org.eclipse.aether.impl.ArtifactResolver;
 import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.ArtifactDescriptorException;
+import org.eclipse.aether.resolution.ArtifactDescriptorPolicy;
+import org.eclipse.aether.resolution.ArtifactDescriptorRequest;
 import org.eclipse.aether.resolution.ArtifactDescriptorResult;
 import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
@@ -44,9 +50,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public abstract class AbstractSyncMojo extends AbstractMojo {
 
@@ -65,9 +71,6 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
 
     @Component
     protected ArtifactHandlerManager artifactHandlerManager;
-
-    @Component
-    protected ModelBuilder modelBuilder;
 
     /**
      * Map that contains the layouts.
@@ -102,14 +105,20 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
 
     /**
      * Repository in the format id::[layout]::url or just url
-     * myrepo::::https://repo.acme.com,https://repo.acme2.com
+     * myrepo::::https://repo.acme.com|https://repo.acme2.com
      */
     @Parameter(property = "targetRepository", required = true)
     protected String targetRepository;
 
+    /**
+     * Synchronize sources
+     */
     @Parameter(defaultValue = "false", property = "syncSources")
     protected boolean syncSources;
 
+    /**
+     * Synchronize javadocs
+     */
     @Parameter(defaultValue = "false", property = "syncJavadoc")
     protected boolean syncJavadoc;
 
@@ -119,11 +128,14 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
     @Parameter(property = "transitive", defaultValue = "true")
     protected boolean transitive = true;
 
+    /**
+     * Scope threshold to include
+     */
     @Parameter(property = "scope", defaultValue = "compile")
     protected String scope = "compile";
 
     /**
-     * A string of the form groupId:artifactId:version[:packaging[:classifier]].
+     * The artifact - a string of the form groupId:artifactId:version[:packaging[:classifier]].
      */
     @Parameter(property = "artifact")
     protected String artifact;
@@ -152,9 +164,15 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
     @Parameter(property = "classifier")
     protected String classifier;
 
+    /**
+     * Option can be used to obtain a summary of what will be transferred
+     */
     @Parameter(property = "dryRun", defaultValue = "false")
     protected boolean dryRun = false;
 
+    /**
+     * Load information about source repositories from settings.xml file
+     */
     @Parameter(property = "useSettingsRepositories", defaultValue = "false")
     protected boolean useSettingsRepositories = false;
 
@@ -214,7 +232,7 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
             }
 
             if (dryRun) {
-                log.info("dry run, exiting");
+                log.info("Dry run, exiting");
                 return;
             }
 
@@ -245,23 +263,32 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
         List<Artifact> result = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         for (Artifact artifact : artifacts) {
-            if (seen.add(getId(artifact))) {
+            if (seen.add(Utils.getId(artifact))) {
                 result.add(artifact);
             }
             Artifact pomArtifact = ArtifactDescriptorUtils.toPomArtifact(artifact);
-            if (seen.add(getId(pomArtifact))) {
+            if (seen.add(Utils.getId(pomArtifact))) {
                 result.add(pomArtifact);
             }
+            if (Utils.isWar(artifact)) {
+                Artifact classifierArtifact = Utils.toClassesArtifact(artifact);
+                if (seen.add(Utils.getId(classifierArtifact))) {
+                    result.add(classifierArtifact);
+                }
+            }
+            if (Utils.isPom(artifact)) {
+                continue;
+            }
             if (syncJavadoc) {
-                Artifact classifiedArtifact = withClassifier(artifact, "javadoc");
-                if (seen.add(getId(classifiedArtifact))) {
-                    result.add(classifiedArtifact);
+                Artifact classifierArtifact = Utils.toJavadocArtifact(artifact);
+                if (seen.add(Utils.getId(classifierArtifact))) {
+                    result.add(classifierArtifact);
                 }
             }
             if (syncSources) {
-                Artifact classifiedArtifact = withClassifier(artifact, "sources");
-                if (seen.add(getId(classifiedArtifact))) {
-                    result.add(classifiedArtifact);
+                Artifact classifierArtifact = Utils.toSourcesArtifact(artifact);
+                if (seen.add(Utils.getId(classifierArtifact))) {
+                    result.add(classifierArtifact);
                 }
             }
         }
@@ -271,12 +298,12 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
     protected List<Artifact> getMissingArtifacts(List<Artifact> requiredArtifacts) throws MojoFailureException, MojoExecutionException {
         try {
             RepositorySystemSession repositorySession = session.getRepositorySession();
-            List<ArtifactRequest> requests = artifactRequests(requiredArtifacts, Collections.singletonList(getTargetRepository()));
+            List<ArtifactRequest> requests = Utils.artifactRequests(requiredArtifacts, Collections.singletonList(getTargetRepository()));
             List<ArtifactResult> target = repositoryArtifactChecker.checkArtifacts(repositorySession, requests);
 
             List<Artifact> missing = new ArrayList<>();
             for (ArtifactResult result : target) {
-                checkResult(result, ArtifactNotFoundException.class::isInstance);
+                Utils.checkResult(result, ArtifactNotFoundException.class::isInstance);
                 if (result.getArtifact() == null) {
                     missing.add(result.getRequest().getArtifact());
                 }
@@ -291,7 +318,7 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
     protected List<Artifact> collectDependencies(CollectRequest collectRequest) throws MojoExecutionException {
         try {
             CollectResult collectResult = repoSystem.collectDependencies(session.getRepositorySession(), collectRequest);
-            return extractArtifacts(collectResult);
+            return Utils.extractArtifacts(collectResult);
         } catch (DependencyCollectionException ex) {
             throw new MojoExecutionException("Failed to collect dependencies", ex);
         }
@@ -299,10 +326,10 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
 
     protected List<ArtifactResult> resolveMissingArtifacts(List<Artifact> artifacts) throws MojoFailureException, MojoExecutionException {
         try {
-            List<ArtifactRequest> requests = artifactRequests(artifacts, getSourceRepositories());
+            List<ArtifactRequest> requests = Utils.artifactRequests(artifacts, getSourceRepositories());
             List<ArtifactResult> downloaded = artifactResolver.resolveArtifacts(session.getRepositorySession(), requests);
             for (ArtifactResult result : downloaded) {
-                checkResult(result, e -> false);
+                Utils.checkResult(result, e -> false);
             }
             return downloaded;
         } catch (ArtifactResolutionException ex) {
@@ -311,49 +338,70 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
     }
 
     protected List<Artifact> getExistingArtifacts(List<Artifact> artifacts) throws MojoFailureException, MojoExecutionException {
+        Map<Boolean, List<Artifact>> partitioned = artifacts.stream().collect(Collectors.partitioningBy(Utils::isPom));
+        List<Artifact> discovered = new ArrayList<>();
+        discovered.addAll(checkNonPomArtifacts(partitioned.getOrDefault(false, Collections.emptyList())));
+        discovered.addAll(loadPomsRecursively(partitioned.getOrDefault(true, Collections.emptyList())));
+        discovered.sort(Comparator.comparing(Artifact::toString));
+        return discovered;
+    }
+
+    protected List<Artifact> checkNonPomArtifacts(List<Artifact> nonpoms) throws MojoFailureException, MojoExecutionException {
         try {
-            RepositorySystemSession repositorySession = session.getRepositorySession();
-            List<ArtifactRequest> requests = artifactRequests(artifacts, getSourceRepositories());
-            List<ArtifactResult> sourceArtifacts = repositoryArtifactChecker.checkArtifacts(repositorySession, requests);
             List<Artifact> discovered = new ArrayList<>();
+            RepositorySystemSession repositorySession = session.getRepositorySession();
+            List<ArtifactRequest> requests = Utils.artifactRequests(nonpoms, getSourceRepositories());
+            List<ArtifactResult> sourceArtifacts = repositoryArtifactChecker.checkArtifacts(repositorySession, requests);
             for (ArtifactResult result : sourceArtifacts) {
-                checkResult(result, ArtifactNotFoundException.class::isInstance);
+                Utils.checkResult(result, ArtifactNotFoundException.class::isInstance);
                 if (result.getArtifact() != null) {
                     discovered.add(result.getArtifact());
                 }
             }
-            discovered.sort(Comparator.comparing(Artifact::toString));
             return discovered;
         } catch (ArtifactResolutionException ex) {
-            throw new MojoExecutionException("Failed to resolve artifacts", ex);
+            throw new MojoExecutionException("Failed to resolve source artifacts", ex);
         }
     }
 
-    protected void checkResult(ArtifactResult result, Predicate<Exception> ignore) throws MojoExecutionException {
-        List<Exception> exceptions = result.getExceptions();
-        if (exceptions == null || exceptions.isEmpty()) {
-            return;
-        }
-        for (Exception exception : exceptions) {
-            if (!ignore.test(exception)) {
-                throw new MojoExecutionException("Failed to resolve artifact " + result.getRequest().getArtifact(), exceptions.get(0));
+    protected List<Artifact> loadPomsRecursively(List<Artifact> poms) throws MojoFailureException, MojoExecutionException {
+        try {
+            List<Artifact> discovered = new ArrayList<>();
+            DefaultRepositorySystemSession repositorySession = new DefaultRepositorySystemSession(session.getRepositorySession());
+            ModelAwareArtifactDescriptorReader descriptorReader = new ModelAwareArtifactDescriptorReader();
+            repositorySession.setConfigProperty(ArtifactDescriptorReaderDelegate.class.getName(), descriptorReader);
+            repositorySession.setArtifactDescriptorPolicy((s, r) -> ArtifactDescriptorPolicy.IGNORE_ERRORS);
+            Set<String> seen = new HashSet<>();
+            while (!poms.isEmpty()) {
+                List<Artifact> next = new ArrayList<>();
+                for (Artifact artifact : poms) {
+                    if (!seen.add(Utils.getId(artifact))) {
+                        continue;
+                    }
+                    ArtifactDescriptorRequest request = new ArtifactDescriptorRequest(artifact, getSourceRepositories(), null);
+                    ArtifactDescriptorResult descriptor = artifactDescriptorReader.readArtifactDescriptor(repositorySession, request);
+                    if (descriptor == null) {
+                        continue;
+                    }
+                    Model model = descriptorReader.getModel(artifact);
+                    if (model == null) {
+                        continue;
+                    }
+                    discovered.add(descriptor.getArtifact());
+                    Parent parent = model.getParent();
+                    if (parent != null) {
+                        next.add(Utils.getPomArtifact(parent));
+                    }
+                }
+                poms = next;
             }
+            return discovered;
+        } catch (ArtifactDescriptorException ex) {
+            throw new MojoExecutionException("Failed to load poms", ex);
         }
     }
 
-    protected void checkResult(ArtifactDescriptorResult result, Predicate<Exception> ignore) throws MojoExecutionException {
-        List<Exception> exceptions = result.getExceptions();
-        if (exceptions == null || exceptions.isEmpty()) {
-            return;
-        }
-        for (Exception exception : exceptions) {
-            if (!ignore.test(exception)) {
-                throw new MojoExecutionException("Failed to load descriptor " + result.getRequest().getArtifact(), exceptions.get(0));
-            }
-        }
-    }
-
-    protected DeployRequest createDeployRequest(List<ArtifactResult> artifacts) throws MojoFailureException, MojoExecutionException {
+    protected DeployRequest createDeployRequest(List<ArtifactResult> artifacts) throws MojoFailureException {
         DeployRequest deployRequest = new DeployRequest();
         deployRequest.setRepository(getTargetRepository());
         for (ArtifactResult artifactResult : artifacts) {
@@ -396,7 +444,7 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
 
     protected RemoteRepository getTargetRepository() throws MojoFailureException {
         if (target == null) {
-            ArtifactRepositoryPolicy updateAlways = getUpdateAlwaysPolicy();
+            ArtifactRepositoryPolicy updateAlways = Utils.getUpdateAlwaysPolicy();
             ArtifactRepository repository = parseRepository(targetRepository, updateAlways);
             target = getRemoteRepositories(Collections.singletonList(repository), false).get(0);
         }
@@ -405,7 +453,7 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
 
     protected List<RemoteRepository> getSourceRepositories() throws MojoFailureException {
         if (source == null) {
-            ArtifactRepositoryPolicy updateAlways = getUpdateAlwaysPolicy();
+            ArtifactRepositoryPolicy updateAlways = Utils.getUpdateAlwaysPolicy();
             List<ArtifactRepository> repositories = new ArrayList<>();
             if (sourceRepositories != null) {
                 String[] repos = StringUtils.split(sourceRepositories, ",");
@@ -427,40 +475,6 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
         return source;
     }
 
-    private ArtifactRepositoryPolicy getUpdateAlwaysPolicy() {
-        return new ArtifactRepositoryPolicy(true, ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS,
-                ArtifactRepositoryPolicy.CHECKSUM_POLICY_WARN);
-    }
-
-    protected List<Artifact> extractArtifacts(CollectResult collectResult) {
-        CollectAllDependenciesVisitor visitor = new CollectAllDependenciesVisitor();
-        collectResult.getRoot().accept(visitor);
-        List<Artifact> artifacts = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
-        for (Artifact artifact : visitor.getArtifacts()) {
-            if (seen.add(getId(artifact))) {
-                artifacts.add(artifact);
-            }
-        }
-        Artifact rootArtifact = collectResult.getRoot().getArtifact();
-        if (seen.add(getId(rootArtifact))) {
-            artifacts.add(rootArtifact);
-        }
-        return artifacts;
-    }
-
-    protected ArtifactRequest artifactRequest(Artifact aetherArtifact, List<RemoteRepository> remoteRepositories) {
-        return new ArtifactRequest(aetherArtifact, remoteRepositories, null);
-    }
-
-    protected List<ArtifactRequest> artifactRequests(List<Artifact> aetherArtifacts, List<RemoteRepository> remoteRepositories) {
-        List<ArtifactRequest> result = new ArrayList<>();
-        for (Artifact artifact : aetherArtifacts) {
-            result.add(artifactRequest(artifact, remoteRepositories));
-        }
-        return result;
-    }
-
     protected Artifact getArtifact(Dependency coordinate) {
         ArtifactHandler artifactHandler = artifactHandlerManager.getArtifactHandler(coordinate.getType());
         return new DefaultArtifact(
@@ -470,20 +484,6 @@ public abstract class AbstractSyncMojo extends AbstractMojo {
                 artifactHandler.getExtension(),
                 coordinate.getVersion()
         );
-    }
-
-    protected Artifact withClassifier(Artifact artifact, String classifier) {
-        return new DefaultArtifact(
-                artifact.getGroupId(),
-                artifact.getArtifactId(),
-                classifier,
-                artifact.getExtension(),
-                artifact.getVersion()
-        );
-    }
-
-    protected static String getId(Artifact artifact) {
-        return artifact.getGroupId() + ':' + artifact.getArtifactId() + ':' + artifact.getClassifier() + ':' + artifact.getExtension();
     }
 
 

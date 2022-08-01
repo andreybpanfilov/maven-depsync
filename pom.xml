@@ -9,6 +9,13 @@
 
     <name>Maven Repository Sync</name>
 
+    <scm>
+        <connection>scm:git:git@github.com:andreybpanfilov/reposync.git</connection>
+        <developerConnection>scm:git:git@github.com:andreybpanfilov/reposync.git</developerConnection>
+        <url>https://github.com/andreybpanfilov/reposync</url>
+        <tag>HEAD</tag>
+    </scm>
+
     <contributors>
         <contributor>
             <name>Andrey B. Panfilov</name>
@@ -28,6 +35,7 @@
         <maven.version>3.2.5</maven.version>
         <maven.plugin.tools.version>3.6.4</maven.plugin.tools.version>
         <project.build.outputTimestamp>2022-07-31T00:00:00Z</project.build.outputTimestamp>
+        <flatten.mode>oss</flatten.mode>
     </properties>
 
     <dependencyManagement>
@@ -133,11 +141,51 @@
                         </execution>
                     </executions>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-scm-plugin</artifactId>
+                    <version>1.11.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>flatten-maven-plugin</artifactId>
+                    <version>1.2.2</version>
+                    <executions>
+                        <execution>
+                            <id>flatten</id>
+                            <phase>process-resources</phase>
+                            <goals>
+                                <goal>flatten</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>flatten.clean</id>
+                            <phase>clean</phase>
+                            <goals>
+                                <goal>clean</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <flattenDependencyMode>direct</flattenDependencyMode>
+                        <flattenMode>${flatten.mode}</flattenMode>
+                        <updatePomFile>true</updatePomFile>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
             <plugin>
-                <artifactId>maven-deploy-plugin</artifactId>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-scm-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

@@ -8,7 +8,6 @@ import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.collection.CollectRequest;
 import org.eclipse.aether.graph.Dependency;
-import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.ArtifactDescriptorException;
 import org.eclipse.aether.resolution.ArtifactDescriptorRequest;
 import org.eclipse.aether.resolution.ArtifactDescriptorResult;
@@ -16,7 +15,10 @@ import org.eclipse.aether.resolution.ArtifactDescriptorResult;
 import java.util.ArrayList;
 import java.util.List;
 
-@Mojo(name = "bom", requiresProject = false, threadSafe = true)
+/**
+ * Synchronises bill of material
+ */
+@Mojo(name = "bom", requiresProject = false, threadSafe = true, requiresOnline = true)
 public class BomSyncMojo extends AbstractSyncMojo {
 
     /**
@@ -31,7 +33,7 @@ public class BomSyncMojo extends AbstractSyncMojo {
         if (!"pom".equals(artifact.getExtension())) {
             throw new MojoExecutionException("Not a pom artifact: " + artifact);
         }
-        List<Dependency> managed = getManagedDependencies(artifact, getSourceRepositories());
+        List<Dependency> managed = getManagedDependencies(artifact);
         List<Artifact> artifacts = new ArrayList<>();
         if (transitive) {
             CollectRequest collectRequest = new CollectRequest();
@@ -50,12 +52,12 @@ public class BomSyncMojo extends AbstractSyncMojo {
         return getExistingArtifacts(addClassifiersAndPoms(artifacts));
     }
 
-    protected List<Dependency> getManagedDependencies(Artifact artifact, List<RemoteRepository> sourceRepositories) throws MojoExecutionException {
+    protected List<Dependency> getManagedDependencies(Artifact artifact) throws MojoFailureException, MojoExecutionException {
         try {
             RepositorySystemSession repositorySession = session.getRepositorySession();
-            ArtifactDescriptorRequest request = new ArtifactDescriptorRequest(artifact, sourceRepositories, null);
+            ArtifactDescriptorRequest request = new ArtifactDescriptorRequest(artifact, getSourceRepositories(), null);
             ArtifactDescriptorResult descriptorResult = artifactDescriptorReader.readArtifactDescriptor(repositorySession, request);
-            checkResult(descriptorResult, e -> false);
+            Utils.checkResult(descriptorResult, e -> false);
             return descriptorResult.getManagedDependencies();
         } catch (ArtifactDescriptorException ex) {
             throw new MojoExecutionException("Failed to read artifact descriptor", ex);
