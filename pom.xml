@@ -3,7 +3,7 @@
 
     <groupId>tel.panfilov.maven</groupId>
     <artifactId>reposync</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Maven Repository Sync</name>
@@ -12,7 +12,7 @@
         <connection>scm:git:git@github.com:andreybpanfilov/reposync.git</connection>
         <developerConnection>scm:git:git@github.com:andreybpanfilov/reposync.git</developerConnection>
         <url>https://github.com/andreybpanfilov/reposync</url>
-        <tag>reposync-0.1.0</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <contributors>
@@ -33,7 +33,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.version>3.2.5</maven.version>
         <maven.plugin.tools.version>3.6.4</maven.plugin.tools.version>
-        <project.build.outputTimestamp>2022-08-01T13:09:39Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2022-08-01T13:09:49Z</project.build.outputTimestamp>
         <flatten.mode>oss</flatten.mode>
     </properties>
 
