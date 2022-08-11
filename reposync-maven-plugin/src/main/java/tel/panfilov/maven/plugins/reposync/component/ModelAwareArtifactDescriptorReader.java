@@ -1,4 +1,4 @@
-package tel.panfilov.maven.plugins.reposync;
+package tel.panfilov.maven.plugins.reposync.component;
 
 import org.apache.maven.model.Model;
 import org.apache.maven.repository.internal.ArtifactDescriptorReaderDelegate;

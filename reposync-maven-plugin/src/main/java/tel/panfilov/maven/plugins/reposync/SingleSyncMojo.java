@@ -16,7 +16,7 @@ import java.util.List;
  * Synchronises single artifact
  */
 @Mojo(name = "single", requiresProject = false, threadSafe = true, requiresOnline = true)
-public class SingleSyncMojo extends AbstractSyncMojo {
+public class SingleSyncMojo extends AbstractCLISyncMojo {
 
     /**
      * The packaging of the artifact to sync. Ignored if {@link #artifact} is used.
@@ -27,7 +27,7 @@ public class SingleSyncMojo extends AbstractSyncMojo {
     @Override
     protected List<Artifact> getExistingArtifacts() throws MojoFailureException, MojoExecutionException {
         List<Artifact> artifacts = new ArrayList<>();
-        Artifact rootArtifact = getArtifact(coordinate);
+        Artifact rootArtifact = getArtifact(getCoordinate());
         if (transitive) {
             artifacts.addAll(collectDependencies(rootArtifact));
         } else {
@@ -38,9 +38,9 @@ public class SingleSyncMojo extends AbstractSyncMojo {
 
     protected Collection<Artifact> collectDependencies(Artifact rootArtifact) throws MojoFailureException, MojoExecutionException {
         CollectRequest collectRequest = new CollectRequest();
-        collectRequest.setRoot(new Dependency(rootArtifact, scope, false));
+        collectRequest.setRoot(new Dependency(rootArtifact, null));
         collectRequest.setRepositories(getSourceRepositories());
-        return collectDependencies(collectRequest);
+        return collectDependencies(collectRequest, 0, DEFAULT_SCOPE);
     }
 
 }
