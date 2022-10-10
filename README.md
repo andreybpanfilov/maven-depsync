@@ -204,3 +204,77 @@ Example:
 [INFO] ------------------------------------------------------------------------
 
 ```
+
+#### reposync:local
+
+Synchronises local repository artifacts as is
+```
+dryRun (Default: false)
+  Option can be used to obtain a summary of what will be transferred
+  User property: dryRun
+
+sourceRepositories
+  Repositories in the format id::[layout]::url or just url, separated by
+  comma. ie.
+  first::default::file:///home/user/.m2/repository,second::::file:///home/user/.m2/repository_2,file:///home/user/.m2/repository_3
+  Only urls with file protocol is supported. 
+  If source repositories is not provided by this property, and by user settings file, value is set to local repository by default.
+  User property: sourceRepositories
+
+syncJavadoc (Default: false)
+  Synchronize javadocs
+  User property: syncJavadoc
+
+syncSources (Default: false)
+  Synchronize sources
+  User property: syncSources
+
+targetRepository
+  Repository in the format id::[layout]::url or just url
+  myrepo::::https://repo.acme.com|https://repo.acme2.com
+  Required: Yes
+  User property: targetRepository
+
+useSettingsRepositories (Default: false)
+  Load information about source repositories from settings.xml file
+  User property: useSettingsRepositories
+
+failOnBadArtifact
+  Whether to failure local goal execution in case of a error during recognizing artifact in local repository.
+  This could be caused by incorrect repository structure, unexpected files which looks like as regular maven artifacts
+  or if illegal characters is present in artifact filename, version, groupId.
+  Default behaviour suppose that provided repository has no such errors.
+  Default value is true, that means that errors will be logged at level WARNING, and execution will be continued.
+  User property: failOnBadArtifact
+```
+
+Example:
+
+```shell
+% mvn tel.panfilov.maven:reposync-maven-plugin:0.2.0:local \
+ -DsourceRepositories=local::default::file:///home/user/.m2/repository \
+ -DtargetRepository=remote::::http://localhost:8081/repository/maven-releases \
+ -DdryRun=true \
+ -DsyncSources=true \
+ -DsyncJavadoc=true \
+[INFO] Scanning for projects...
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO] 
+[INFO] Maven Repository Sync                                              [pom]
+[INFO] reposync-maven-plugin                                     [maven-plugin]
+[INFO] 
+[INFO] --------------------< tel.panfilov.maven:reposync >---------------------
+[INFO] Building Maven Repository Sync 0.2.0                               [1/2]
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --- reposync-maven-plugin:0.2.0:local (default-cli) @ reposync       ---
+[INFO] Source repositories: [local (file:///home/user/.m2/repository, default, releases+snapshots)]
+[INFO] Target repository: remote (http://localhost:8081/repository/maven-releases/, default, releases+snapshots)
+[INFO] Discovered 4149 artifacts
+...
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+
+```

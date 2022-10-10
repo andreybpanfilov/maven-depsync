@@ -95,6 +95,14 @@ public final class Utils {
         return new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), "classes", "jar", artifact.getVersion());
     }
 
+    public static boolean isSourcesArtifact(Artifact artifact) {
+        return "sources".equals(artifact.getClassifier());
+    }
+
+    public static boolean isJavadocArtifact(Artifact artifact) {
+        return "javadoc".equals(artifact.getClassifier());
+    }
+
     public static boolean isPom(Artifact artifact) {
         return "pom".equals(artifact.getExtension());
     }
