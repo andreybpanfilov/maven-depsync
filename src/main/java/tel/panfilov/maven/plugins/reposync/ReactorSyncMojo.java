@@ -2,8 +2,13 @@ package tel.panfilov.maven.plugins.reposync;
 
 import org.apache.maven.RepositoryUtils;
 import org.apache.maven.model.DependencyManagement;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.building.DefaultModelBuildingRequest;
+import org.apache.maven.model.building.ModelBuildingRequest;
+import org.apache.maven.model.interpolation.ModelInterpolator;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
@@ -14,6 +19,7 @@ import org.eclipse.aether.graph.Dependency;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,6 +32,10 @@ import java.util.stream.Collectors;
 public class ReactorSyncMojo extends AbstractSyncMojo {
 
     protected final Set<String> ignoreScopes = new HashSet<>();
+
+    @Component
+    protected ModelInterpolator modelInterpolator;
+
     /**
      * Scope threshold to include
      */
@@ -72,22 +82,57 @@ public class ReactorSyncMojo extends AbstractSyncMojo {
                 .map(d -> RepositoryUtils.toDependency(d, typeRegistry))
                 .filter(this::include)
                 .collect(Collectors.toList());
-        collectRequest.setDependencies(dependencies);
 
-        DependencyManagement dependencyManagement = project.getDependencyManagement();
+        Model originalModel = getOriginalProjectModel(project);
+
+        DependencyManagement dependencyManagement = originalModel.getDependencyManagement();
+        if (dependencyManagement != null) {
+            dependencyManagement.getDependencies()
+                    .stream()
+                    .filter(d -> "import".equals(d.getScope()))
+                    .filter(d -> "pom".equals(d.getType()))
+                    .map(d -> RepositoryUtils.toDependency(d, typeRegistry))
+                    .forEach(dependencies::add);
+        }
+
+        dependencyManagement = project.getDependencyManagement();
         if (dependencyManagement != null) {
             List<Dependency> managed = dependencyManagement.getDependencies()
                     .stream()
                     .map(d -> RepositoryUtils.toDependency(d, typeRegistry))
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toCollection(ArrayList::new));
             collectRequest.setManagedDependencies(managed);
         }
+
+        collectRequest.setDependencies(dependencies);
+
         return collectDependencies(collectRequest, 0, DEFAULT_SCOPE);
+    }
+
+    protected Model getOriginalProjectModel(MavenProject project) {
+        return modelInterpolator.interpolateModel(
+                project.getOriginalModel(),
+                project.getBasedir(),
+                createModelBuildingRequest(project),
+                a -> {
+                }
+        );
     }
 
     @Override
     protected boolean include(Dependency dependency) {
         return !ignoreScopes.contains(dependency.getScope());
+    }
+
+    protected ModelBuildingRequest createModelBuildingRequest(MavenProject project) {
+        ModelBuildingRequest request = new DefaultModelBuildingRequest();
+        request.setValidationLevel(ModelBuildingRequest.VALIDATION_LEVEL_MINIMAL);
+        request.setProcessPlugins(false);
+        request.setProfiles(project.getActiveProfiles());
+        request.setSystemProperties(session.getSystemProperties());
+        request.setUserProperties(session.getUserProperties());
+        request.setBuildStartTime(new Date());
+        return request;
     }
 
 }
