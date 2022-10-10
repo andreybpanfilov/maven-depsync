@@ -150,7 +150,7 @@ public class ReactorSyncMojo extends AbstractSyncMojo {
         request.setProcessPlugins(false);
         request.setProfiles(project.getActiveProfiles());
         request.setSystemProperties(session.getSystemProperties());
-        request.setUserProperties(session.getUserProperties());
+        request.setUserProperties(project.getProperties());
         request.setBuildStartTime(new Date());
         return request;
     }
