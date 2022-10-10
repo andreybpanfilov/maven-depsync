@@ -4,7 +4,7 @@
 
     <groupId>tel.panfilov.maven</groupId>
     <artifactId>reposync-maven-plugin</artifactId>
-    <version>0.2.1-SNAPSHOT</version>
+    <version>0.2.1</version>
     <packaging>maven-plugin</packaging>
 
     <inceptionYear>2022</inceptionYear>
@@ -29,7 +29,7 @@
         <connection>scm:git:git://github.com/andreybpanfilov/reposync.git</connection>
         <developerConnection>scm:git:git@github.com:andreybpanfilov/reposync.git</developerConnection>
         <url>https://github.com/andreybpanfilov/reposync</url>
-        <tag>HEAD</tag>
+        <tag>reposync-maven-plugin-0.2.1</tag>
     </scm>
 
     <organization>
@@ -70,7 +70,7 @@
         <maven-resolver.version>1.4.1</maven-resolver.version>
         <maven.plugin.tools.version>3.6.4</maven.plugin.tools.version>
         <maven.release.api.version>2.5.3</maven.release.api.version>
-        <project.build.outputTimestamp>2022-10-10T16:09:04Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2022-10-10T18:18:17Z</project.build.outputTimestamp>
         <maven-javadoc-plugin.version>3.4.0</maven-javadoc-plugin.version>
         <maven-release-plugin.version>3.0.0-M6</maven-release-plugin.version>
         <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
