@@ -70,7 +70,7 @@ version
 Example:
 
 ```shell
-% mvn tel.panfilov.maven:reposync-maven-plugin:0.1.0:single \
+% mvn tel.panfilov.maven:reposync-maven-plugin:0.2.0:single \
  -Dartifact=org.springframework:spring-tx:5.3.22 \
  -DsourceRepositories=central::default::https://repo.maven.apache.org/maven2 \
  -DtargetRepository=local::::http://localhost:8081/repository/maven-releases \
@@ -172,7 +172,7 @@ version
 Example:
 
 ```shell
-% mvn tel.panfilov.maven:reposync-maven-plugin:0.1.0:bom \
+% mvn tel.panfilov.maven:reposync-maven-plugin:0.2.0:bom \
  -Dartifact=org.springframework:spring-framework-bom:5.3.9 \
  -DsourceRepositories=central::default::https://repo.maven.apache.org/maven2 \
  -DtargetRepository=local::::http://localhost:8081/repository/maven-releases \
